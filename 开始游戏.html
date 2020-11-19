@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>界面优化版</title>
+    <style>
+        * {
+            margin: 0%;
+            padding: 0%;
+        }
+        
+        body {
+            background-color: rgb(247, 233, 173);
+        }
+        
+        .left {
+            position: relative;
+            background-color: pink;
+            float: left;
+            height: 900px;
+            width: 1200px;
+        }
+        
+        .right {
+            font-size: 20px;
+        }
+        
+        button {
+            width: 150px;
+            height: 50px;
+        }
+        
+        .data {
+            color: red;
+            font-size: 50px;
+        }
+        
+        .tip {
+            font-size: 40px;
+            color: red;
+        }
+        
+        .tile {
+            position: absolute;
+            width: 80px;
+            height: 50px;
+        }
+        
+        .tile:hover {
+            border: 5px solid black;
+        }
+        
+        #bg {
+            height: 900px;
+            width: 1200px;
+        }
+        
+        .曹丕 {
+            background-color: blue;
+        }
+        
+        .刘禅 {
+            background-color: green;
+        }
+        
+        .孙权 {
+            background-color: red;
+        }
+        
+        .空白地 {
+            background-color: white;
+        }
+        
+        select {
+            font-size: 20px;
+        }
+        
+        .cityInfo span {
+            display: inline-block;
+            width: 200px;
+        }
+        
+        .adjust button {
+            width: 50px;
+            height: 25px;
+        }
+        
+        .msg {
+            width: 500px;
+        }
+        
+        .showMsg {
+            position: absolute;
+        }
+    </style>
+</head>
+
+<!-- 防止页面误触 -->
+
+<body onselectstart="return false;" ondragstart="return false;">
+    <script src="./vue.js"></script>
+    <div id="app" v-cloak>
+
+
+
+
+        <!-- 左侧图形界面 -->
+        <div class="left">
+            <div class="showMsg">
+                <select class="msg" multiple="multiple" :size="msgSize">
+                    <option v-for="(item,index) in msgArr">{{item}}</option>
+                </select>
+                <span class="adjust">
+                    <button v-show="7==msgSize" @click="msgSize=2">收起</button>
+                    <button v-show="2==msgSize" @click="msgSize=7">展开</button>
+                </span>
+            </div>
+            <div class="tile" :class="city.君主" v-for="(city,index) in cityArr" :style="getStyle(city)" @click="selectCity(city)">{{city.name}}{{city.兵力}}
+                <select v-show="city.武将.length>0">
+                    <option value="item.name" v-for="(item,index) in city.武将">{{item.name}}</option>
+                </select>
+            </div>
+            <img src="./img/bg.jpg" alt="" id="bg">
+        </div>
+
+
+
+
+        <!-- 右侧操作界面 -->
+        <div class="right">
+            <!-- 开始剧本 -->
+            <div :class="country">
+                <hr>选择君主
+                <select v-model="country">
+                    <option :value="item" v-for="(item,index) in countryArr">{{item}}</option>
+                </select>
+                <button @click="start()">开始</button>
+            </div>
+
+            <!-- 年份和玩家 -->
+            <div :class="country">
+                <hr> 玩家扮演的君主是{{country}}----年份{{year}}年
+                <button @click="showHelp()">帮助信息</button>
+            </div>
+
+            <!-- 没用的内测的debug的整体信息 -->
+            <div>
+                <hr>
+                <p>武将和城市信息表</p>
+                <select>
+                    <option value="item.name" v-for="(item,index) in manArr">{{item.name}}-武力{{item.武力}}-知力{{item.知力}}</option>
+                </select>
+                <select>
+                    <option value="item.name" v-for="(item,index) in cityArr">{{item.name}}-{{item.君主}}-兵力{{item.兵力}}-训练{{item.训练}}-武将数{{item.武将.length}}</option>
+                </select>
+            </div>
+
+
+            <!-- 选中的now城市的信息 -->
+            <div>
+                <hr>
+                <p>城市now:<button id="now" :class="now.君主">{{now.name}}</button>相邻:
+                    <span v-for="(item,index) in now.n">{{item.name}},</span></p>
+                <p class="cityInfo"><span>商业:{{now.商业}}</span><span>农业:{{now.农业}}</span></p>
+                <p class="cityInfo"><span>金钱:{{now.金钱}}</span> <span>粮食:{{now.粮食}}</span></p>
+                <p class="cityInfo"><span>兵力:{{now.兵力}}</span> <span>训练:{{now.训练}}</span></p>
+                <p class="cityInfo"><span>君主:{{now.君主}}</span><span>武将数:{{now.武将.length}}</span></p>
+                <p>
+                    <!-- 当不是自己的城市时 -->
+                    <select multiple="multiple" disabled v-show="country!=now.君主">
+                        <option :value="item" v-for="(item,index) in now.武将">{{item.name}}武力{{item.武力}}知力{{item.知力}}身份{{item.身份}}活动{{item.活动}}</option>
+                    </select>
+                    <!-- 当是自己的城市时 -->
+                    <select multiple="multiple" v-model="选择武将" v-show="country==now.君主">
+                        <!-- 分为已经活动和未活动 -->
+                        <option :value="item" v-for="(item,index) in now.武将" v-if="0==item.活动&&'一般'==item.身份">{{item.name}}武力{{item.武力}}知力{{item.知力}}身份{{item.身份}}活动{{item.活动}}</option>
+                        <option :value="item" v-for="(item,index) in now.武将" disabled v-if="1==item.活动&&'一般'==item.身份">{{item.name}}武力{{item.武力}}知力{{item.知力}}身份{{item.身份}}活动{{item.活动}}</option>
+                        <option :value="item" v-for="(item,index) in now.武将" disabled v-if="'俘虏'==item.身份">{{item.name}}武力{{item.武力}}知力{{item.知力}}身份{{item.身份}}活动{{item.活动}}</option>
+                    </select>
+                </p>
+                <p>选择武将：<span v-for="(item,index) in 选择武将">{{item.name}},</span></p>
+            </div>
+
+
+
+            <!-- 作弊台，用于游戏开发时的辅助测试 -->
+            <div>
+                <hr>
+                <span>作弊台</span>
+                <button @click="now.金钱+=1000">加金钱</button>
+                <button @click="now.粮食+=10000">加粮食</button>
+                <button @click="now.兵力+=10000">加兵力</button>
+                <button @click="now.训练+=50">加训练</button>
+            </div>
+
+
+
+            <!-- 对now城市的回合操作 -->
+            <div>
+                <hr>
+                <div v-show="now.君主!=country">这是{{now.君主}}的城市，不是{{country}}的</div>
+                <div v-show="now.君主==country">
+                    <div>
+                        <p>城市内指令</p>
+                        <button @click="doBusiness(now)">发展商业</button>
+                        <button @click="doAgriculture(now)">发展农业</button>
+                        <button @click="doConscript(now)">征兵</button>
+                        <button @click="doTrain(now)">训练</button>
+                        <button @click="doEmploy(now)">录用</button>
+                        <button @click="doSearch(now)">搜索</button>
+                    </div>
+                    <div>
+                        <p>城市间指令</p>
+                        <p>选择城市
+                            <select v-model="选择城市">
+                            <option :value="item" v-for="(item,index) in now.n" >{{item.name}}-{{item.君主}}-兵力{{item.兵力}}-训练{{item.训练}}</option>
+                        </select>{{选择城市.name}}
+                        </p>
+                        <div class="adjust">
+                            <p>选择兵力
+                                <input type="range" min="0" :max="now.兵力" v-model.number="选择兵力" step="10">{{选择兵力}}
+                                <button @click="选择兵力=parseInt(now.兵力/2)">一半</button><button @click="选择兵力=now.兵力">全部</button>
+                            </p>
+                            <p>选择金钱
+                                <input type="range" min="0" :max="now.金钱" v-model.number="选择金钱" step="10">{{选择金钱}}
+                                <button @click="选择金钱=parseInt(now.金钱/2)">一半</button><button @click="选择金钱=now.金钱">全部</button>
+                            </p>
+                            <p>选择粮食
+                                <input type="range" min="0" :max="now.粮食" v-model.number="选择粮食" step="10">{{选择粮食}}
+                                <button @click="选择粮食=parseInt(now.粮食/2)">一半</button><button @click="选择粮食=now.粮食">全部</button>
+                            </p>
+                        </div>
+                        <p v-show="选择城市.name!=blankCity.name">
+                            <button @click="doWar(now,选择城市)" v-show="选择城市.君主!=country">出征</button>
+                            <button v-show="选择城市.君主==country" @click="doMove(now,选择城市,选择武将,选择金钱,选择粮食,选择兵力)">移动</button>
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+
+
+            <!-- 下一回合 -->
+            <div>
+                <hr>
+                <button @click="nextRound()">下一回合</button>
+            </div>
+
+
+
+
+            <!-- <div>
+                <hr>
+                <p>聊天窗口</p>
+                <p>问：<input type="text"></p>
+                <p>答：<span></span></p>
+            </div> -->
+        </div>
+    </div>
+
+
+    <script src="./tempData.js"></script>
+    <script>
+        // 城市和武将相互映射
+        for (let i = 0; i < InitCityArr.length; i++) {
+            let strArr = InitCityArr[i].武将.split(",");
+            let temp = [];
+            for (let j = 0; j < strArr.length; j++) {
+                let man = getObjectByName(strArr[j], InitManArr);
+                if (man != null) {
+                    temp.push(man);
+                    man.所在 = InitCityArr[i];
+                }
+            }
+            InitCityArr[i].武将 = temp;
+        }
+
+        // 城市和城市相互映射连接
+        for (let i = 0; i < InitCityArr.length; i++) {
+            let strArr = InitCityArr[i].n.split(",");
+            let temp = [];
+            for (let j = 0; j < strArr.length; j++) {
+                let city = getObjectByName(strArr[j], InitCityArr);
+                if (city != null) {
+                    temp.push(city);
+                }
+            }
+            InitCityArr[i].n = temp;
+        }
+
+        // 城市和武将的数值数据数值化
+        for (let i = 0; i < InitCityArr.length; i++) {
+            InitCityArr[i].商业 = parseInt(InitCityArr[i].商业);
+            InitCityArr[i].农业 = parseInt(InitCityArr[i].农业);
+            InitCityArr[i].金钱 = parseInt(InitCityArr[i].金钱);
+            InitCityArr[i].粮食 = parseInt(InitCityArr[i].粮食);
+            InitCityArr[i].兵力 = parseInt(InitCityArr[i].兵力);
+            InitCityArr[i].训练 = parseInt(InitCityArr[i].训练);
+            InitCityArr[i].活动 = parseInt(InitCityArr[i].活动);
+        }
+        for (let i = 0; i < InitManArr.length; i++) {
+            InitManArr[i].武力 = parseInt(InitManArr[i].武力);
+            InitManArr[i].知力 = parseInt(InitManArr[i].知力);
+
+        }
+
+        // let rand = Math.floor((Math.random() * 10));
+        function getObjectByName(name, arr) {
+            for (let k = 0; k < arr.length; k++) {
+                if (arr[k].name == name) {
+                    return arr[k];
+                }
+            }
+            return null;
+        }
+
+
+
+        function getManArrAttack(manArr) {
+            // 输入一个武将数组，返回这些武将指挥的军队的攻击力修正buff系数，要突出能力最高的几位武将的作用，也要突出人海战术作用
+            // 即使是没有将领也有最初的修正值
+            // 干脆是排好序，然后按照数学f(x)=k/(k+x)来算，x=0时，f=1，x=k时，f=0.5，妙啊
+            let attackArr = [];
+            for (let i = 0; i < manArr.length; i++) {
+                attackArr.push(manArr[i].武力);
+            }
+            attackArr.sort().reverse();
+            let k = 2; //试用
+            let attackSum = 20; //初始化认为存在一些基层无名之辈的武将
+            for (let j = 0; j < attackArr.length; j++) {
+                attackSum += attackArr[j] * k / (k + j);
+            }
+            return attackSum;
+        }
+
+        function getManArrIntel(manArr) {
+            // 返回武将数组的集体智慧度，直接相加就行
+            let intel = 0;
+            for (let i = 0; i < manArr.length; i++) {
+                intel += manArr[i].知力;
+            }
+            return intel;
+        }
+
+        function getManArrForce(manArr) {
+            // 一般在400左右
+            let force = 0;
+            for (let i = 0; i < manArr.length; i++) {
+                force += manArr[i].武力;
+            }
+            return force;
+        }
+
+        function getCityAttack(city) {
+            // 城市攻击力=武将数组攻击力*城市训练度
+            return getManArrAttack(city.武将) * city.训练 / 100;
+        }
+
+        function manMove(man, srcCity, desCity) {
+            // 武将的更换城市，移动
+            man.所在 = srcCity;
+            srcCity.武将.splice(srcCity.武将.findIndex(m => m.name === man.name), 1);
+            desCity.武将.push(man);
+        }
+
+
+
+        // 生成一个空白城市对象
+        let blankCity = {
+            name: "空白城市",
+            商业: null,
+            农业: null,
+            金钱: null,
+            粮食: null,
+            兵力: null,
+            训练: null,
+            君主: "空白地",
+            武将: [],
+            n: [],
+        };
+
+
+        let app = new Vue({
+            el: "#app",
+            data: {
+                year: 225,
+                msgSize: 7,
+                msgArr: ["游戏已经开始了", "demo文字1", "demo文字2", "demo文字3", "demo文字4", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", "demo文字5", ],
+                isStart: false,
+                isReady: false,
+                score: 0,
+                cityArr: [],
+                manArr: [],
+                autoWar: true, //自动战争，以后升级了能手动操作战争
+                countryArr: ["曹丕", "孙权", "刘禅"],
+                选择兵力: 0,
+                选择金钱: 0,
+                选择粮食: 0,
+                选择城市: blankCity,
+                选择武将: [],
+                now: blankCity,
+                country: "曹丕",
+                blankCity: blankCity,
+            },
+            // 方法
+            methods: {
+                ready: function() {
+                    this.start();
+                },
+                start: function() {
+                    let that = this;
+                    that.isStart = true;
+                    that.cityArr = InitCityArr;
+                    that.manArr = InitManArr;
+                },
+                getStyle: function(tile) {
+                    return "left:" + tile.x + "px;" + "top:" + tile.y + "px;";
+                },
+                keydown: function() {
+
+                },
+                loadStory: function() {
+
+                },
+                selectCity: function(city) {
+                    this.now = city;
+                    this.选择兵力 = 0;
+                    this.选择粮食 = 0;
+                    this.选择金钱 = 0;
+                    this.选择城市 = blankCity;
+                    this.选择武将 = [];
+                },
+                showHelp: function() {
+                    alert("作者：spBrother19\n故事背景：东汉末年，朝政腐败，群雄割据\n184年黄巾起义\n198年讨伐董卓\n204年官渡大战\n208年赤壁大战\n225年三国鼎立\n235年九伐中原");
+                },
+
+                // 这些do开头的是回合指令
+                doBusiness: function(city) {
+                    let num = parseInt(getManArrIntel(this.选择武将) / 40);
+                    city.商业 += num;
+                    this.doRelax(this.选择武将);
+
+                },
+                doAgriculture: function(city) {
+                    let num = parseInt(getManArrIntel(this.选择武将) / 40);
+                    city.农业 += num;
+                    this.doRelax(this.选择武将);
+
+                },
+                doConscript: function(city) {
+                    // 征兵值就只和武将武力总数有关
+                    let force = getManArrForce(this.选择武将);
+                    // 计算能花多少钱来征兵，取城市金钱和武将force的最小值
+                    let spend = Math.min(city.金钱, force);
+                    city.兵力 += spend * 10;
+                    this.addMsg(city.name + "成功征兵" + spend * 10);
+                    city.金钱 -= spend;
+
+                    // 超过一定界限的征兵要减少城市的开发度
+                    if (spend > 100) {
+                        if (city.农业 > 10) {
+                            city.农业 -= 10;
+                        }
+                        if (city.商业 > 10) {
+                            city.商业 -= 10;
+                        }
+                    }
+                    this.doRelax(this.选择武将);
+                },
+                doTrain: function(city) {
+                    // 和武将的force有关，训练就暂时不用考虑成本了
+                    let num = parseInt(getManArrForce(this.选择武将) / 40);
+                    city.训练 += num;
+                    this.doRelax(this.选择武将);
+                },
+                doEmploy: function(city) {
+                    let captiveArr = this.now.武将.filter(e => "俘虏" == e.身份);
+                    for (let i = 0; i < this.选择武将.length; i++) {
+                        if (captiveArr.length > 0) {
+                            let rand = Math.floor((Math.random() * 3));
+                            // 有一定的概率能成功录用
+                            if (0 == rand) {
+                                let employee = captiveArr.pop();
+                                employee.身份 = "一般";
+                                employee.活动 = 1;
+                                this.addMsg(city.name + "成功录用了" + employee.name);
+                            }
+                        }
+
+                    }
+                    this.doRelax(this.选择武将);
+
+                },
+                doSearch: function(city) {
+                    // 一视同仁的随机事件
+                    for (let i = 0; i < this.选择武将.length; i++) {
+                        let rand = Math.floor((Math.random() * 4));
+                        switch (rand) {
+                            case 0:
+                                this.addMsg(city.name + "找到金钱");
+                                city.金钱 += 200;
+                                break;
+                            case 1:
+                                this.addMsg(city.name + "找到粮食");
+                                city.粮食 += 2000;
+                                break;
+                            case 2:
+                                this.addMsg(city.name + "遭遇灾害");
+                                if (city.农业 > 5) {
+                                    city.农业 -= 5;
+                                }
+                                break;
+                            case 3:
+                                this.addMsg(city.name + "遭遇劫匪");
+                                if (city.商业 > 5) {
+                                    city.商业 -= 5;
+                                }
+                                break;
+                        }
+                    }
+                    this.doRelax(this.选择武将);
+
+                },
+                doWar: function(aCity, bCity) {
+                    this.addMsg(aCity.name + "进攻" + bCity.name);
+                    // 因为战争导致的两个城市的开发度减少
+                    aCity.农业 = parseInt(aCity.农业 * 0.9);
+                    aCity.商业 = parseInt(aCity.商业 * 0.9);
+                    // 当然被攻击的城市损伤更大
+                    bCity.农业 = parseInt(bCity.农业 * 0.8);
+                    bCity.商业 = parseInt(bCity.商业 * 0.8);
+
+                    let aAttack = getCityAttack(aCity)
+                    let bAttack = getCityAttack(bCity)
+
+                    // 直达有一方的兵力为0为止
+                    aCity.兵力 -= this.选择兵力;
+                    while (this.选择兵力 > 0 && bCity.兵力 > 0) {
+                        bCity.兵力 -= aAttack;
+                        this.选择兵力 -= bAttack;
+                    }
+                    // 取整和保证非负数
+                    this.选择兵力 = parseInt(this.选择兵力);
+                    bCity.兵力 = parseInt(bCity.兵力);
+                    if (this.选择兵力 < 0) {
+                        this.选择兵力 = 0;
+                    }
+                    if (bCity.兵力 < 0) {
+                        bCity.兵力 = 0;
+                    }
+
+                    // 判断是否吞并
+                    this.checkAnnex(aCity, bCity);
+                    this.doRelax(this.选择武将);
+
+                },
+                checkAnnex: function(aCity, bCity) {
+                    // 判断是否吞并
+                    if (bCity.兵力 == 0) {
+                        bCity.君主 = aCity.君主;
+                        this.addMsg(aCity.name + "军赢了");
+                        // 如果进攻方胜利，武将，金钱，粮食和兵力的转移，对面武将的俘虏
+                        // 俘虏
+                        for (let i = 0; i < bCity.武将.length; i++) {
+                            bCity.武将[i].身份 = "俘虏";
+                            bCity.武将[i].活动 = 1;
+                        }
+                        // 出征的武将移动
+                        for (let i = 0; i < this.选择武将.length; i++) {
+                            manMove(this.选择武将[i], aCity, bCity);
+                        }
+                        // 金钱和粮食
+                        bCity.金钱 += this.选择金钱;
+                        bCity.粮食 += this.选择粮食;
+                        aCity.金钱 -= this.选择金钱;
+                        aCity.粮食 -= this.选择粮食;
+                        // 兵力转移
+                        bCity.兵力 += this.选择兵力;
+
+                    } else {
+                        this.addMsg(bCity.name + "军赢了");
+                    }
+                },
+                doMove: function(src, des, manArr, money, food, troops) {
+                    this.doRelax(this.选择武将);
+                    // 武将的移动
+                    des.武将 = des.武将.concat(manArr);
+                    src.武将 = src.武将.filter(el => !manArr.includes(el));
+                    // 金钱和粮食的移动
+                    des.金钱 += money;
+                    des.粮食 += food;
+                    des.兵力 += troops;
+                    src.金钱 -= money;
+                    src.粮食 -= food;
+                    src.兵力 -= troops;
+                },
+
+                doRelax: function(manArr) {
+                    // 武将执行任务后进行休息，本回合不能再行动
+                    for (let i = 0; i < manArr.length; i++) {
+                        manArr[i].活动 = 1;
+                    }
+                    // 初始化选择
+                    this.选择兵力 = 0;
+                    this.选择金钱 = 0;
+                    this.选择粮食 = 0;
+                    this.选择城市 = blankCity;
+                    this.选择武将 = [];
+                },
+                nextRound: function() {
+                    // 武将执行任务后进行休息，本回合不能再行动
+                    for (let i = 0; i < this.manArr.length; i++) {
+                        this.manArr[i].活动 = 0;
+                    }
+                    // 初始化选择
+                    this.选择兵力 = 0;
+                    this.选择金钱 = 0;
+                    this.选择粮食 = 0;
+                    this.选择城市 = blankCity;
+                    this.选择武将 = [];
+                    // this.now = blankCity;
+                    this.year += 1;
+
+                    // 遍历本国家的城市增加金钱和粮食，和由于兵力造成的粮食损耗
+                    for (let i = 0; i < this.cityArr.length; i++) {
+                        if (this.country == this.cityArr[i].君主) {
+                            this.cityArr[i].金钱 += this.cityArr[i].商业;
+                            this.cityArr[i].粮食 += (this.cityArr[i].农业) * 10;
+
+                            this.cityArr[i].粮食 -= parseInt(this.cityArr[i].兵力 / 10);
+                            // 如果城市缺少粮食就会自动减少兵力
+                            if (this.cityArr[i].粮食 < 0) {
+                                this.cityArr[i].粮食 = 0;
+                                this.addMsg(this.cityArr[i].name + "的粮食不够了");
+                                // 按照比例减少兵力
+                                this.cityArr[i].兵力 = parseInt(this.cityArr[i].兵力 * 0.8);
+                            }
+                        }
+                    }
+                },
+                addMsg: function(val) {
+                    this.msgArr.splice(0, 0, val);
+                }
+
+            },
+            // 监听
+            watch: {
+                msgArr: function(val) {
+                    let len = val.length;
+                    // 如果记录框里面的信息太多了
+                    if (len > 400) {
+                        val = val.splice(7, len - 7);
+                    }
+                }
+            }
+        });
+        // 游戏初始化
+        app.ready();
+    </script>
+</body>
+
+</html>
